@@ -1,38 +1,39 @@
 // This script runs in the Figma environment
 
 function swapInstances(): void {
-  // Check if there are exactly two nodes selected
-  if (figma.currentPage.selection.length !== 2) {
-    figma.closePlugin('Please select exactly two instances.');
+  // Check if there are at least two nodes selected
+  if (figma.currentPage.selection.length < 2) {
+    figma.closePlugin('Please select at least one nested instance and one content instance.');
     return;
   }
 
-  const [firstInstance, secondInstance] = figma.currentPage.selection as [InstanceNode, InstanceNode];
+  let contentInstance: InstanceNode | null = null;
+  const nestedInstances: InstanceNode[] = [];
 
-  // Check if both selected nodes are instances
-  if (firstInstance.type !== 'INSTANCE' || secondInstance.type !== 'INSTANCE') {
-    figma.closePlugin('Both selected nodes must be instances.');
+  // Identify the content instance and collect all nested instances
+  for (const node of figma.currentPage.selection) {
+    if (node.type === 'INSTANCE' && (!node.parent || node.parent.type !== 'INSTANCE')) {
+      contentInstance = node;
+    } else if (node.type === 'INSTANCE') {
+      nestedInstances.push(node);
+    }
+  }
+
+  // Check if a content instance was identified and there's at least one nested instance
+  if (!contentInstance || nestedInstances.length === 0) {
+    figma.closePlugin('Please select at least one nested instance and one content instance.');
     return;
   }
 
-  // Check if both instances have main components
-  if (!firstInstance.mainComponent || !secondInstance.mainComponent) {
-    figma.closePlugin('Both instances must have main components.');
+  // Check if the content instance has a main component
+  if (!contentInstance.mainComponent) {
+    figma.closePlugin('The content instance must have a main component.');
     return;
   }
 
-  // Swap the components of the two instances
-  const firstMainComponent = firstInstance.mainComponent;
-  firstInstance.swapComponent(secondInstance.mainComponent);
-  secondInstance.swapComponent(firstMainComponent);
-
-  // If one instance is nested and the other is free, move the free instance to the position of the nested instance
-  if (firstInstance.parent && firstInstance.parent.type !== 'INSTANCE' && secondInstance.parent && secondInstance.parent.type === 'INSTANCE') {
-    firstInstance.x = secondInstance.x;
-    firstInstance.y = secondInstance.y;
-  } else if (secondInstance.parent && secondInstance.parent.type !== 'INSTANCE' && firstInstance.parent && firstInstance.parent.type === 'INSTANCE') {
-    secondInstance.x = firstInstance.x;
-    secondInstance.y = firstInstance.y;
+  // Swap the components of the nested instances with the content instance's component
+  for (const nestedInstance of nestedInstances) {
+    nestedInstance.swapComponent(contentInstance.mainComponent);
   }
 
   figma.closePlugin('Instances swapped successfully.');
